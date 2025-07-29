@@ -51,24 +51,14 @@ function App() {
   // Load player balance (MOVED HERE)
   const loadPlayerBalance = useCallback(async () => {
     try {
-      const playerId = getPlayerId();
-      const response = await fetch(
-        `${BACKEND_URL}/api/player/${playerId}/balance`
-      );
+      const response = await fetch(`${BACKEND_URL}/player/balance/${getPlayerId()}`);
       const data = await response.json();
-
-      if (data.success) {
-        setPlayerData({
-          playerId,
-          balances: data.balances,
-        });
-      }
+      setPlayerBalance(data.balance);
     } catch (error) {
-      console.error("Error loading balance:", error);
+      console.error('Error loading player b alance:', error);
     }
-  }, [getPlayerId, BACKEND_URL]); // Added BACKEND_URL as a dependency for loadPlayerBalance
+  }, [getPlayerId]); // Remove BACKEND_URL from here
 
-  // Socket connection setup
   useEffect(() => {
     const newSocket = io(BACKEND_URL, {
       transports: ["websocket", "polling"],
