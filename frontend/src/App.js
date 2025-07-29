@@ -18,12 +18,8 @@ function App() {
     bettingPhase: false,
   });
 
-  const [playerData, setPlayerData] = useState({
-    playerId: null,
-    balances: {},
-  });
-
-  const [playerBalance, setPlayerBalance] = useState(0); // Add this line
+  // Remove unused playerData state
+  const [playerBalance, setPlayerBalance] = useState(0);
 
   const [betData, setBetData] = useState({
     amount: "",
@@ -185,7 +181,7 @@ function App() {
     return () => {
       newSocket.close();
     };
-  }, [getPlayerId, loadPlayerBalance, BACKEND_URL]); // Ensure BACKEND_URL is also a dependency if used inside useEffect
+  }, [getPlayerId, loadPlayerBalance]); // Remove BACKEND_URL from dependencies
 
   // Load round history
   const loadRoundHistory = useCallback(async () => {
