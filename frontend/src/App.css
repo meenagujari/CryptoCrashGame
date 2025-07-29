@@ -1,0 +1,218 @@
+.App {
+  @apply min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900;
+}
+
+.game-container {
+  @apply container mx-auto px-4 py-8;
+}
+
+.game-header {
+  @apply text-center mb-8;
+}
+
+.game-title {
+  @apply text-4xl font-bold text-white mb-2;
+}
+
+.game-subtitle {
+  @apply text-xl text-gray-300;
+}
+
+.game-board {
+  @apply grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto;
+}
+
+.multiplier-display {
+  @apply lg:col-span-2 card text-center;
+}
+
+.multiplier-value {
+  @apply text-6xl font-bold mb-4 transition-all duration-100;
+}
+
+.multiplier-rising {
+  @apply text-green-500 animate-pulse-fast;
+}
+
+.multiplier-crashed {
+  @apply text-red-500;
+}
+
+.multiplier-waiting {
+  @apply text-gray-500;
+}
+
+.game-status {
+  @apply text-2xl font-semibold mb-4;
+}
+
+.status-waiting {
+  @apply text-yellow-500;
+}
+
+.status-active {
+  @apply text-green-500;
+}
+
+.status-crashed {
+  @apply text-red-500;
+}
+
+.betting-panel {
+  @apply card;
+}
+
+.betting-title {
+  @apply text-2xl font-bold mb-6 text-center;
+}
+
+.betting-form {
+  @apply space-y-4;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700;
+}
+
+.currency-select {
+  @apply input-field;
+}
+
+.bet-button {
+  @apply w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.cashout-button {
+  @apply w-full btn-success disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.balance-display {
+  @apply card mt-8;
+}
+
+.balance-title {
+  @apply text-xl font-bold mb-4;
+}
+
+.balance-list {
+  @apply space-y-2;
+}
+
+.balance-item {
+  @apply flex justify-between items-center p-3 bg-gray-50 rounded-lg;
+}
+
+.balance-currency {
+  @apply font-medium text-gray-700;
+}
+
+.balance-amount {
+  @apply text-right;
+}
+
+.balance-crypto {
+  @apply text-sm text-gray-600;
+}
+
+.balance-usd {
+  @apply font-bold text-green-600;
+}
+
+.game-history {
+  @apply card mt-8;
+}
+
+.history-title {
+  @apply text-xl font-bold mb-4;
+}
+
+.history-list {
+  @apply space-y-2 max-h-60 overflow-y-auto;
+}
+
+.history-item {
+  @apply flex justify-between items-center p-2 bg-gray-50 rounded;
+}
+
+.history-round {
+  @apply text-sm text-gray-600;
+}
+
+.history-crash {
+  @apply font-bold;
+}
+
+.crash-low {
+  @apply text-red-500;
+}
+
+.crash-medium {
+  @apply text-yellow-500;
+}
+
+.crash-high {
+  @apply text-green-500;
+}
+
+.connection-status {
+  @apply fixed top-4 right-4 px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.status-connected {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-disconnected {
+  @apply bg-red-100 text-red-800;
+}
+
+.error-message {
+  @apply bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4;
+}
+
+.success-message {
+  @apply bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4;
+}
+
+/* Loading animations */
+.loading-spinner {
+  @apply inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .multiplier-value {
+    @apply text-4xl;
+  }
+  
+  .game-board {
+    @apply grid-cols-1 gap-4;
+  }
+  
+  .game-container {
+    @apply px-2 py-4;
+  }
+}
+
+/* Custom scrollbar for history */
+.history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}

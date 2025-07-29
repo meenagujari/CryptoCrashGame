@@ -1,0 +1,76 @@
+
+entrypoint = "backend/index.js"
+modules = ["nodejs-22"]
+hidden = [".config", "package-lock.json"]
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
+
+[nix]
+channel = "stable-24_11"
+
+[deployment]
+run = ["node", "backend/index.js"]
+deploymentTarget = "autoscale"
+ignorePorts = false
+
+[workflows]
+runButton = "Start Crypto Crash Server"
+
+[[workflows.workflow]]
+name = "Start Crypto Crash Server"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && node index.js"
+
+[[workflows.workflow]]
+name = "Start Backend Server"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && node index.js"
+
+[[workflows.workflow]]
+name = "Start Frontend"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm install && npm start"
+
+[[workflows.workflow]]
+name = "Install Frontend Dependencies"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm install"
+
+[[workflows.workflow]]
+name = "Install Backend Dependencies"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && npm install"
+
+[[workflows.workflow]]
+name = "Start Frontend React App"
+author = 45565454
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm start"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

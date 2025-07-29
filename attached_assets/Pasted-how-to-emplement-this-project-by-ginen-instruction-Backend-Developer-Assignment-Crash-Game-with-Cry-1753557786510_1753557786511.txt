@@ -1,0 +1,89 @@
+how to emplement this project by ginen instruction Backend Developer Assignment: Crash Game with Crypto
+API and WebSockets
+Overview
+You are tasked with building a backend for an online "Crash" game called "Crypto Crash." Players bet in
+USD, which is converted to a cryptocurrency (e.g., BTC or ETH) using real-time prices fetched from a
+cryptocurrency API. They watch a multiplier increase in real-time and decide when to cash out before the
+game "crashes." The backend must handle game logic, cryptocurrency transactions (simulated with
+real-time price integration), and real-time multiplayer updates using WebSockets. This assignment
+evaluates your skills in game development logic, cryptocurrency integration, and WebSocket
+implementation.
+Requirements
+1. Game Logic (Crash Game)
+● Game Rules:
+o A game round starts every 10 seconds.
+o Players place bets in USD (e.g., $10), which are converted to a chosen cryptocurrency (e.g.,
+BTC or ETH) based on real-time prices.
+o Once the round starts, a multiplier begins at 1x and increases exponentially over time (e.g.,
+using a formula like multiplier = 1 + (time_elapsed * growth_factor)).
+o The game randomly "crashes" at a multiplier value (e.g., 1.5x, 3x, 10x … 120x) determined
+by a provably fair algorithm.
+o Players can cash out at any time before the crash, earning their bet (in crypto) multiplied by
+the current multiplier, converted back to USD for display.
+o If a player does not cash out before the crash, they lose their bet.
+o Game state (bets, cashouts, crash point, player balances) must be tracked and stored.Implementation:
+o Create API endpoints to:
+▪ Place a bet in USD, specifying the cryptocurrency for conversion.
+▪ Cash out during a round.
+o Implement a provably fair crash algorithm:
+▪ Use a cryptographically secure random number generator to determine the crash
+point.
+▪ Ensure the crash point is verifiable (e.g., provide a seed and hash for transparency).
+▪ Example: Crash point could be derived from crash_point = hash(seed +
+round_number) % max_crash, where max_crash is a high value (e.g., 100x).
+o Store game round history (e.g., round ID, crash point, player bets, cashouts, outcomes) in a
+database, including USD and crypto amounts.
+2. Cryptocurrency Integration with Real-Time Price API
+● Task: Integrate a public cryptocurrency API (e.g., CoinGecko, CoinMarketCap, Binance API or any
+free api) to fetch real-time prices for supported cryptocurrencies (e.g., BTC, ETH).
+o Allow players to bet in USD, converting the USD amount to the chosen cryptocurrency at the
+current market price.
+o Simulate a cryptocurrency wallet system for players, storing balances in crypto.
+o Each bet deducts the equivalent crypto amount from the wallet, and cashouts add the
+crypto payout to it.
+o Simulate blockchain transactions for each bet and cashout (e.g., log transaction details like
+sender, receiver, crypto amount, and a mock transaction hash).
+o Provide USD-equivalent values for balances and payouts using the latest crypto price for
+display purposes.
+● Implementation:
+o Create API endpoints to:
+▪ Check a player's wallet balance (in crypto and USD equivalent).
+▪ Place a bet in USD, converting to crypto.
+▪ Process cash out winnings (add crypto to balance, return USD equivalent).
+o Fetch real-time crypto prices:
+▪ Cache prices for 10 seconds to avoid rate limits, but ensure conversions use the price
+at the time of the bet.
+o Conversion logic:Example: Player bets $10 with BTC selected, and BTC price is $60,000. Convert: $10 /
+$60,000 = 0.00016667 BTC.
+▪ Cashout at 2x multiplier: 0.00016667 BTC * 2 = 0.00033334 BTC, converted back to
+USD for display (0.00033334 * $60,000 = $20).
+o Store transaction logs in a database with fields: player_id, usd_amount, crypto_amount,
+currency, transaction_type (bet/cashout), transaction_hash (mock), price_at_time (USD per
+crypto), timestamp.
+o Ensure atomicity in balance updates using database transactions to prevent race conditions.
+3. WebSockets for Real-Time Multiplayer Updates
+o Implement real-time notifications for game events using WebSockets to support a
+multiplayer experience.
+o Notify all connected clients of:
+▪ Round start (multiplier begins increasing).
+▪ Multiplier updates (at least every 100ms).
+▪ Player cashouts (including player ID, crypto payout, and USD equivalent).
+▪ Round crash (including final crash point).
+o Allow players to send cashout requests via WebSocket during the round.Technical Requirements
+● Language/Frameworks:
+o Use Node.js with Express.js.
+o Use NoSQL database (MongoDB) for data storage.
+● WebSocket Library:
+o Use a library like ws or Socket.IO for Node.js.
+● Crypto API:
+o Use a free public crypto API like CoinGecko or CoinMarketCap (ensure compliance with rate
+limits and terms of use).
+● Security:
+o Validate inputs to prevent invalid bets or cashouts (e.g., negative USD amounts, cashing out
+after crash).
+o Use a cryptographically secure method for crash point generation.
+o Secure WebSocket messages to prevent abuse (e.g., validate cashout requests).
+o Handle API rate limits and errors gracefully (e.g., fallback to cached prices if the API fails)
+
+
+

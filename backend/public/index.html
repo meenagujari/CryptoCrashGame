@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Crash Game</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00d4ff, #ff6b6b, #4ecdc4);
+            background-size: 200% 200%;
+            animation: gradientShift 3s ease infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+        }
+
+        .game-area {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #ff6b6b, #4ecdc4);
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            height: fit-content;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.4em;
+            font-weight: 500;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .multiplier {
+            font-size: 4em;
+            text-align: center;
+            margin: 30px 0;
+            font-weight: 700;
+            color: #00ff88;
+            text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+            transition: all 0.3s ease;
+            background: rgba(0, 255, 136, 0.1);
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .multiplier.rising {
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .crashed {
+            color: #ff4757 !important;
+            text-shadow: 0 0 30px rgba(255, 71, 87, 0.7) !important;
+            background: rgba(255, 71, 87, 0.1) !important;
+            border-color: rgba(255, 71, 87, 0.3) !important;
+            animation: crashShake 0.5s ease-in-out;
+        }
+
+        @keyframes crashShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group.full-width {
+            grid-column: span 2;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        input, button, select {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        button {
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 212, 255, 0.3);
+        }
+
+        button:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .bet-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d) !important;
+        }
+
+        .cashout-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24) !important;
+        }
+
+        .add-balance-btn {
+            background: linear-gradient(45deg, #feca57, #ff9ff3) !important;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin: 25px 0 15px 0;
+            color: #00d4ff;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .balance {
+            margin: 15px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .balance:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .balance strong {
+            color: #4ecdc4;
+            font-size: 1.1em;
+        }
+
+        .history {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 212, 255, 0.5) transparent;
+        }
+
+        .history::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .history::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .history::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.5);
+            border-radius: 10px;
+        }
+
+        .round-history {
+            padding: 12px 15px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border-left: 4px solid #4ecdc4;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .round-history:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .round-history.high-multiplier {
+            border-left-color: #feca57;
+            background: rgba(254, 202, 87, 0.1);
+        }
+
+        .round-history.low-multiplier {
+            border-left-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        #messages {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .message {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            animation: slideIn 0.3s ease;
+        }
+
+        .message:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .price-item:last-child {
+            border-bottom: none;
+        }
+
+        .price-currency {
+            font-weight: 600;
+        }
+
+        .price-value {
+            color: #4ecdc4;
+            font-weight: 500;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .control-group.full-width {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .multiplier {
+                font-size: 3em;
+            }
+
+            .container {
+                padding: 0 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Crypto Crash Game</h1>
+    </div>
+
+    <div class="container">
+        <div class="game-area">
+            <div class="status" id="status">Connecting...</div>
+            <div class="multiplier" id="multiplier">1.00x</div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <input type="number" id="betAmount" placeholder="Bet Amount (USD)" value="10" min="1">
+                    <select id="currency">
+                        <option value="BTC">₿ Bitcoin (BTC)</option>
+                        <option value="ETH">Ξ Ethereum (ETH)</option>
+                        <option value="USDT">₮ Tether (USDT)</option>
+                    </select>
+                </div>
+                <div class="control-group full-width">
+                    <button id="betBtn" class="bet-btn">🎯 Place Bet</button>
+                    <button id="cashoutBtn" class="cashout-btn" disabled>💰 Cash Out</button>
+                </div>
+            </div>
+
+            <div id="messages"></div>
+        </div>
+
+        <div class="sidebar">
+             <h3 class="section-title">👤 Select Player</h3>
+            <select id="playerSelect" onchange="switchPlayer()" style="margin-bottom: 20px;">
+                <option value="random">🎲 Random Player</option>
+                <option value="dragon_slayer_77">Dragon Slayer</option>
+                <option value="crypto_ninja_88">Crypto Ninja</option>
+                <option value="moon_walker_99">Moon Walker</option>
+                <option value="diamond_hands_pro">Diamond Hands</option>
+                <option value="rocket_trader_x">Rocket Trader</option>
+            </select>
+
+            <h3 class="section-title">💼 Player Balance</h3>
+            <div id="balance"></div>
+
+            <h3 class="section-title">💳 Add Balance</h3>
+            <div class="controls">
+                <input type="number" id="addAmount" placeholder="Amount (USD)" value="100" min="1">
+                <select id="addCurrency">
+                    <option value="BTC">₿ Bitcoin (BTC)</option>
+                    <option value="ETH">Ξ Ethereum (ETH)</option>
+                    <option value="USDT">₮ Tether (USDT)</option>
+                </select>
+                <button id="addBalanceBtn" class="add-balance-btn">💎 Add Balance</button>
+            </div>
+
+            <h3 class="section-title">📈 Current Prices</h3>
+            <div id="prices"></div>
+
+            <h3 class="section-title">📊 Round History</h3>
+            <div class="history" id="history"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+
+        let currentBet = null;
+        let gameState = 'waiting';
+
+        // DOM elements
+        const statusEl = document.getElementById('status');
+        const multiplierEl = document.getElementById('multiplier');
+        const betBtn = document.getElementById('betBtn');
+        const cashoutBtn = document.getElementById('cashoutBtn');
+        const betAmountEl = document.getElementById('betAmount');
+        const currencyEl = document.getElementById('currency');
+        const messagesEl = document.getElementById('messages');
+        const balanceEl = document.getElementById('balance');
+        const pricesEl = document.getElementById('prices');
+        const historyEl = document.getElementById('history');
+
+        // Socket events
+        socket.on('connect', () => {
+            statusEl.textContent = '🟢 Connected - Ready to Play!';
+            loadPlayerBalance();
+            loadPrices();
+            loadHistory();
+        });
+
+        socket.on('roundWaiting', (data) => {
+            gameState = 'waiting';
+            statusEl.textContent = '⏰ ' + (data.message || 'Betting phase - Place your bets!');
+            multiplierEl.textContent = '1.00x';
+            multiplierEl.className = 'multiplier';
+            betBtn.disabled = false;
+            cashoutBtn.disabled = true;
+            currentBet = null;
+        });
+
+        socket.on('roundStart', (data) => {
+            gameState = 'active';
+            statusEl.textContent = '🚀 ' + (data.message || 'Round Active - Multiplier Rising!');
+            multiplierEl.classList.add('rising');
+            betBtn.disabled = false;
+        });
+
+        socket.on('multiplierUpdate', (data) => {
+            multiplierEl.textContent = data.multiplier.toFixed(2) + 'x';
+            multiplierEl.classList.add('rising');
+            if (currentBet && !currentBet.cashedOut) {
+                cashoutBtn.disabled = false;
+            }
+        });
+
+        socket.on('roundCrash', (data) => {
+            gameState = 'crashed';
+            statusEl.textContent = '💥 ' + (data.message || `Round Crashed at ${data.crashPoint.toFixed(2)}x`);
+            multiplierEl.textContent = data.crashPoint.toFixed(2) + 'x';
+            multiplierEl.className = 'multiplier crashed';
+            cashoutBtn.disabled = true;
+
+            if (currentBet && !currentBet.cashedOut && currentBet.roundId === data.roundId) {
+                addMessage(`💸 You lost $${currentBet.usdAmount} - didn't cash out in time!`, 'error');
+                currentBet = null;
+            }
+
+            loadPlayerBalance();
+            loadHistory();
+        });
+
+        socket.on('playerBet', (data) => {
+            if (data.playerId === playerId) {
+                currentBet = data;
+                addMessage(`🎯 ${data.message || 'Bet placed'}: $${data.usdAmount} (${data.cryptoAmount.toFixed(8)} ${data.currency})`, 'success');
+                loadPlayerBalance();
+            } else {
+                addMessage(`👤 Player bet $${data.usdAmount}`, 'info');
+            }
+        });
+
+        socket.on('playerCashout', (data) => {
+            if (data.playerId === playerId) {
+                currentBet.cashedOut = true;
+                cashoutBtn.disabled = true;
+                addMessage(`💰 Cashed out at ${data.multiplier.toFixed(2)}x! Won $${data.usdPayout.toFixed(2)}`, 'success');
+                loadPlayerBalance();
+            } else {
+                addMessage(`👤 Player cashed out at ${data.multiplier.toFixed(2)}x`, 'info');
+            }
+        });
+
+        socket.on('cashoutSuccess', (data) => {
+            addMessage(`✅ Cashout successful! ${data.multiplier.toFixed(2)}x multiplier`, 'success');
+        });
+
+        socket.on('cashoutError', (data) => {
+            addMessage(`❌ Cashout failed: ${data.error}`, 'error');
+        });
+
+        // Button events
+        betBtn.addEventListener('click', placeBet);
+        cashoutBtn.addEventListener('click', cashOut);
+        document.getElementById('addBalanceBtn').addEventListener('click', addBalance);
+
+        async function placeBet() {
+            const amount = parseFloat(betAmountEl.value);
+            const currency = currencyEl.value;
+
+            if (!amount || amount <= 0) {
+                addMessage('❌ Invalid bet amount', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerId,
+                        usdAmount: amount,
+                        currency
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    addMessage('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                addMessage('❌ Bet failed: ' + error.message, 'error');
+            }
+        }
+
+        function cashOut() {
+            socket.emit('cashout', { playerId });
+        }
+
+        async function addBalance() {
+            const amount = parseFloat(document.getElementById('addAmount').value);
+            const currency = document.getElementById('addCurrency').value;
+
+            if (!amount || amount <= 0) {
+                addMessage('❌ Invalid amount', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/wallet/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerId,
+                        usdAmount: amount,
+                        currency
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    addMessage('✅ ' + data.message, 'success');
+                    loadPlayerBalance();
+                } else {
+                    addMessage('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                addMessage('❌ Failed to add balance: ' + error.message, 'error');
+            }
+        }
+
+        async function loadPlayerBalance() {
+            try {
+                const response = await fetch(`/api/player/${playerId}/balance`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+
+                const balances = data.balances || {};
+
+                let balanceHtml = '';
+                if (Object.keys(balances).length === 0) {
+                    balanceHtml = '<div class="balance" style="color: #888;">💳 Creating your wallet...</div>';
+                } else {
+                    for (const [currency, balance] of Object.entries(balances)) {
+                        const icon = currency === 'BTC' ? '₿' : currency === 'ETH' ? 'Ξ' : '₮';
+                        balanceHtml += `
+                            <div class="balance">
+                                <strong>${icon} ${currency}:</strong> ${(balance.crypto || 0).toFixed(8)}<br>
+                                <small style="color: #4ecdc4;">($${(balance.usd || 0).toFixed(2)})</small>
+                            </div>
+                        `;
+                    }
+                }
+                balanceEl.innerHTML = balanceHtml;
+            } catch (error) {
+                console.error('Failed to load balance:', error);
+                balanceEl.innerHTML = '<div class="balance" style="color: #ff6b6b;">❌ Failed to load balances<br><small>Check console for details</small></div>';
+            }
+        }
+
+        async function loadPrices() {
+            try {
+                const response = await fetch('/api/prices');
+                const prices = await response.json();
+
+                let pricesHtml = '';
+                for (const [currency, price] of Object.entries(prices)) {
+                    if (currency !== 'lastUpdate') {
+                        const icon = currency === 'BTC' ? '₿' : currency === 'ETH' ? 'Ξ' : '₮';
+                        pricesHtml += `
+                            <div class="price-item">
+                                <span class="price-currency">${icon} ${currency}</span>
+                                <span class="price-value">$${price.toLocaleString()}</span>
+                            </div>
+                        `;
+                    }
+                }
+                pricesEl.innerHTML = pricesHtml;
+            } catch (error) {
+                console.error('Failed to load prices:', error);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/round/history');
+                const data = await response.json();
+                const rounds = data.rounds || data || [];
+
+                let historyHtml = '';
+                if (rounds.length === 0) {
+                    historyHtml = '<div class="round-history" style="text-align: center; color: #888;">🎮 No completed rounds yet<br>Start playing to see history!</div>';
+                } else {
+                    rounds.forEach(round => {
+                        const multiplierClass = round.crashPoint >= 3 ? 'high-multiplier' : round.crashPoint < 1.5 ? 'low-multiplier' : '';
+                        const emoji = round.crashPoint >= 10 ? '🚀' : round.crashPoint >= 3 ? '📈' : round.crashPoint >= 2 ? '📊' : '💥';
+                        historyHtml += `
+                            <div class="round-history ${multiplierClass}">
+                                <span>${emoji} Round ${round.roundId.slice(-6)}</span>
+                                <strong>${round.crashPoint.toFixed(2)}x</strong>
+                            </div>
+                        `;
+                    });
+                }
+                historyEl.innerHTML = historyHtml;
+            } catch (error) {
+                console.error('Failed to load history:', error);
+                historyEl.innerHTML = '<div class="round-history" style="color: #ff6b6b;">❌ Failed to load history</div>';
+            }
+        }
+
+        function addMessage(message, type) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message';
+            messageEl.textContent = message;
+            messageEl.style.color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#4ecdc4' : '#00d4ff';
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            // Keep only last 10 messages
+            while (messagesEl.children.length > 10) {
+                messagesEl.removeChild(messagesEl.firstChild);
+            }
+        }
+
+        // Update prices every 30 seconds
+        setInterval(loadPrices, 30000);
+
+        function switchPlayer() {
+            const selectedPlayer = document.getElementById('playerSelect').value;
+
+            if (selectedPlayer === 'random') {
+                // Create new random player
+                playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+                addMessage('🎲 Switched to new random player: ' + playerId, 'info');
+                // Keep dropdown on 'random' selection
+            } else {
+                // Switch to selected sample player
+                playerId = selectedPlayer;
+                const playerNames = {
+                    'dragon_slayer_77': 'Dragon Slayer',
+                    'crypto_ninja_88': 'Crypto Ninja',
+                    'moon_walker_99': 'Moon Walker',
+                    'diamond_hands_pro': 'Diamond Hands',
+                    'rocket_trader_x': 'Rocket Trader'
+                };
+                addMessage('🔄 Switched to ' + playerNames[playerId], 'success');
+                // Update dropdown to reflect current selection
+                document.getElementById('playerSelect').value = playerId;
+            }
+
+            // Reset current bet and game state
+            currentBet = null;
+            cashoutBtn.disabled = true;
+
+            // Load new player's balance and update UI
+            loadPlayerBalance();
+
+            // Update status to show current player  
+            const displayName = playerId.startsWith('player_') ? 'Random Player (' + playerId.slice(-6) + ')' : playerId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            statusEl.textContent = '👤 Playing as: ' + displayName;
+        }
+    </script>
+</body>
+</html>
