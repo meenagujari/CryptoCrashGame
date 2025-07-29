@@ -23,6 +23,8 @@ function App() {
     balances: {},
   });
 
+  const [playerBalance, setPlayerBalance] = useState(0); // Add this line
+
   const [betData, setBetData] = useState({
     amount: "",
     currency: "BTC",
