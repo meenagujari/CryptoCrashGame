@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
 const axios = require('axios');
+const path = require('path');
 require('dotenv').config();
 
 // =============================================
@@ -39,7 +40,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use(express.static(__dirname + '/public'));
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+
 
 // =============================================
 // DATABASE CONNECTION & MODELS
@@ -421,7 +424,7 @@ function startGameCycle() {
  * Root route - Serve the game interface
  */
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+  res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
 });
 
 /**
