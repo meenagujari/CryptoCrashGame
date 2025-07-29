@@ -33,8 +33,8 @@ A real-time multiplayer cryptocurrency crash game built with Node.js, WebSockets
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/meenagujari/CrashGame.git
-cd crypto-crash-game
+git clone https://github.com/meenagujari/CryptoCrashGame.git
+cd CryptoCrashGame
 ```
 
 2. **Install Backend Dependencies**

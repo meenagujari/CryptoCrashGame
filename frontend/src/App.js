@@ -48,6 +48,26 @@ function App() {
     return playerId;
   }, []);
 
+  // Load player balance (MOVED HERE)
+  const loadPlayerBalance = useCallback(async () => {
+    try {
+      const playerId = getPlayerId();
+      const response = await fetch(
+        `${BACKEND_URL}/api/player/${playerId}/balance`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setPlayerData({
+          playerId,
+          balances: data.balances,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading balance:", error);
+    }
+  }, [getPlayerId, BACKEND_URL]); // Added BACKEND_URL as a dependency for loadPlayerBalance
+
   // Socket connection setup
   useEffect(() => {
     const newSocket = io(BACKEND_URL, {
@@ -173,27 +193,7 @@ function App() {
     return () => {
       newSocket.close();
     };
-  }, [getPlayerId]);
-
-  // Load player balance
-  const loadPlayerBalance = useCallback(async () => {
-    try {
-      const playerId = getPlayerId();
-      const response = await fetch(
-        `${BACKEND_URL}/api/player/${playerId}/balance`
-      );
-      const data = await response.json();
-
-      if (data.success) {
-        setPlayerData({
-          playerId,
-          balances: data.balances,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading balance:", error);
-    }
-  }, [getPlayerId]);
+  }, [getPlayerId, loadPlayerBalance, BACKEND_URL]); // Ensure BACKEND_URL is also a dependency if used inside useEffect
 
   // Load round history
   const loadRoundHistory = useCallback(async () => {
