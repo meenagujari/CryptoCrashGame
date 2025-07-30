@@ -7,370 +7,84 @@ export const BACKEND_URL =
     : process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
 
 function App() {
-  // State management
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [gameState, setGameState] = useState({
-    roundId: null,
-    status: "waiting",
-    currentMultiplier: 1.0,
-    timeElapsed: 0,
-    bettingPhase: false,
-  });
-
-  // Restore playerData state with proper structure
-  const [playerData, setPlayerData] = useState({
-    playerId: "",
-    balances: {},
-  });
-  // Remove or use this variable if it's truly unused.
-  // For now, I'm commenting it out as it's reported as unused.
-  // const [playerBalance, setPlayerBalance] = useState(0);
-
+  const [gameState, setGameState] = useState(null);
+  const [playerData, setPlayerData] = useState(null);
   const [betData, setBetData] = useState({
-    amount: "",
-    currency: "BTC",
+    betAmount: '',
+    currency: 'USD',
+    cashOutMultiplier: '',
   });
+  const [playerBalance, setPlayerBalance] = useState(0); // This was commented out in previous fix, uncommenting it now
 
-  const [roundHistory, setRoundHistory] = useState([]);
-  const [currentBet, setCurrentBet] = useState(null);
-  const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [cryptoPrices, setCryptoPrices] = useState({
-    BTC: 45000,
-    ETH: 2500,
-    USDT: 1,
-  });
-
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [depositData, setDepositData] = useState({
-    amount: "",
-    currency: "BTC",
-  });
-  const [isDepositing, setIsDepositing] = useState(false);
-
-  // Generate or get player ID
-  const getPlayerId = useCallback(() => {
-    let playerId = localStorage.getItem("crypto_crash_player_id");
-    if (!playerId) {
-      playerId = `player_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem("crypto_crash_player_id", playerId);
-    }
-    return playerId;
-  }, []);
-
-  // Socket connection setup
-  useEffect(() => {
-    const newSocket = io(BACKEND_URL, {
-      transports: ["websocket", "polling"],
-      timeout: 5000,
-      forceNew: true,
-    });
-
-    newSocket.on("connect", () => {
-      console.log("✅ Connected to server");
-      setIsConnected(true);
-      setSocket(newSocket);
-    });
-
-    newSocket.on("disconnect", () => {
-      console.log("❌ Disconnected from server");
-      setIsConnected(false);
-    });
-
-    newSocket.on("connect_error", (error) => {
-      console.error("Connection error:", error);
-      setIsConnected(false);
-    });
-
-    // Game state events
-    newSocket.on("gameState", (data) => {
-      console.log("📊 Game state received:", data);
-      setGameState(data);
-    });
-
-    newSocket.on("roundWaiting", (data) => {
-      console.log("⏳ Round waiting:", data);
-      setGameState((prev) => ({
-        ...prev,
-        roundId: data.roundId,
-        status: "waiting",
-        bettingPhase: true,
-        currentMultiplier: 1.0,
-        timeElapsed: 0,
-      }));
-      setCurrentBet(null);
-      setMessage(data.message || "Betting phase - Place your bets!");
-    });
-
-    newSocket.on("roundStart", (data) => {
-      console.log("🚀 Round started:", data);
-      setGameState((prev) => ({
-        ...prev,
-        roundId: data.roundId,
-        status: "active",
-        bettingPhase: false,
-        currentMultiplier: 1.0,
-        timeElapsed: 0,
-      }));
-      setMessage(data.message || "Round started! Multiplier rising...");
-    });
-
-    newSocket.on("multiplierUpdate", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        currentMultiplier: data.multiplier,
-        timeElapsed: data.timeElapsed,
-      }));
-    });
-
-    newSocket.on("roundCrash", (data) => {
-      console.log("💥 Round crashed:", data);
-      setGameState((prev) => ({
-        ...prev,
-        status: "crashed",
-        currentMultiplier: data.crashPoint,
-        bettingPhase: false,
-      }));
-      setMessage(data.message || `Round crashed at ${data.crashPoint}x!`);
-
-      // Add to history
-      setRoundHistory((prev) => [
-        { roundId: data.roundId, crashPoint: data.crashPoint },
-        ...prev.slice(0, 9),
-      ]);
-    });
-
-    newSocket.on("playerBet", (data) => {
-      console.log("💰 Player bet:", data);
-      if (data.playerId === getPlayerId()) {
-        setCurrentBet({
-          amount: data.usdAmount,
-          currency: data.currency,
-          cryptoAmount: data.cryptoAmount,
-        });
-        setMessage(`Bet placed: $${data.usdAmount} in ${data.currency}`);
-        loadPlayerBalance();
-      }
-    });
-
-    newSocket.on("playerCashout", (data) => {
-      console.log("💸 Player cashout:", data);
-      if (data.playerId === getPlayerId()) {
-        setMessage(
-          `Cashed out at ${data.multiplier}x! Won $${data.usdPayout.toFixed(2)}`
-        );
-        setCurrentBet(null);
-        loadPlayerBalance();
-      }
-    });
-
-    newSocket.on("cashoutSuccess", (data) => {
-      console.log("✅ Cashout successful:", data);
-      setMessage(
-        `Successfully cashed out at ${
-          data.multiplier
-        }x! Won $${data.usdPayout.toFixed(2)}`
-      );
-      setCurrentBet(null);
-      loadPlayerBalance();
-    });
-
-    newSocket.on("cashoutError", (data) => {
-      console.error("❌ Cashout error:", data);
-      setMessage(`Cashout failed: ${data.error}`);
-    });
-
-    return () => {
-      newSocket.close();
-    };
-  }, [getPlayerId, loadPlayerBalance]); // Added loadPlayerBalance to dependency array
-
-  // Load player balance - MOVED BEFORE useEffect THAT USES IT
+  // Define loadPlayerBalance here, before its usage in useEffect
   const loadPlayerBalance = useCallback(async () => {
     try {
-      const playerId = getPlayerId();
-      const response = await fetch(
-        `${BACKEND_URL}/api/player/${playerId}/balance`
-      );
+      const response = await fetch(`${BACKEND_URL}/api/player/balance`);
       const data = await response.json();
-
-      if (data.success) {
-        setPlayerData({
-          playerId,
-          balances: data.balances,
-        });
+      if (response.ok) {
+        setPlayerBalance(data.balance);
+      } else {
+        console.error('Failed to load player balance:', data.message);
       }
     } catch (error) {
-      console.error("Error loading player balance:", error);
+      console.error('Error loading player balance:', error);
     }
-  }, [getPlayerId]);
+  }, []);
 
-  // Socket connection setup - NOW THIS COMES AFTER loadPlayerBalance DEFINITION
   useEffect(() => {
-    const newSocket = io(BACKEND_URL, {
-      transports: ["websocket", "polling"],
-      timeout: 5000,
-      forceNew: true,
-    });
+    const newSocket = io(BACKEND_URL);
+    setSocket(newSocket);
 
-    newSocket.on("connect", () => {
-      console.log("✅ Connected to server");
+    newSocket.on('connect', () => {
       setIsConnected(true);
-      setSocket(newSocket);
+      console.log('Connected to WebSocket');
     });
 
-    newSocket.on("disconnect", () => {
-      console.log("❌ Disconnected from server");
+    newSocket.on('disconnect', () => {
       setIsConnected(false);
+      console.log('Disconnected from WebSocket');
     });
 
-    newSocket.on("connect_error", (error) => {
-      console.error("Connection error:", error);
-      setIsConnected(false);
+    newSocket.on('gameStateUpdate', (state) => {
+      setGameState(state);
+      // console.log('Game state updated:', state);
     });
 
-    // Game state events
-    newSocket.on("gameState", (data) => {
-      console.log("📊 Game state received:", data);
-      setGameState(data);
+    newSocket.on('playerData', (data) => {
+      setPlayerData(data);
+      // console.log('Player data received:', data);
     });
 
-    newSocket.on("roundWaiting", (data) => {
-      console.log("⏳ Round waiting:", data);
-      setGameState((prev) => ({
-        ...prev,
-        roundId: data.roundId,
-        status: "waiting",
-        bettingPhase: true,
-        currentMultiplier: 1.0,
-        timeElapsed: 0,
-      }));
-      setCurrentBet(null);
-      setMessage(data.message || "Betting phase - Place your bets!");
+    newSocket.on('balanceUpdate', (balance) => {
+      setPlayerBalance(balance);
+      console.log('Balance updated:', balance);
     });
 
-    newSocket.on("roundStart", (data) => {
-      console.log("🚀 Round started:", data);
-      setGameState((prev) => ({
-        ...prev,
-        roundId: data.roundId,
-        status: "active",
-        bettingPhase: false,
-        currentMultiplier: 1.0,
-        timeElapsed: 0,
-      }));
-      setMessage(data.message || "Round started! Multiplier rising...");
+    newSocket.on('betPlaced', (bet) => {
+      console.log('Bet placed:', bet);
+      // Optionally update UI or player data
     });
 
-    newSocket.on("multiplierUpdate", (data) => {
-      setGameState((prev) => ({
-        ...prev,
-        currentMultiplier: data.multiplier,
-        timeElapsed: data.timeElapsed,
-      }));
+    newSocket.on('cashOutSuccess', (data) => {
+      console.log('Cash out successful:', data);
+      // Optionally update UI or player data
     });
 
-    newSocket.on("roundCrash", (data) => {
-      console.log("💥 Round crashed:", data);
-      setGameState((prev) => ({
-        ...prev,
-        status: "crashed",
-        currentMultiplier: data.crashPoint,
-        bettingPhase: false,
-      }));
-      setMessage(data.message || `Round crashed at ${data.crashPoint}x!`);
-
-      // Add to history
-      setRoundHistory((prev) => [
-        { roundId: data.roundId, crashPoint: data.crashPoint },
-        ...prev.slice(0, 9),
-      ]);
+    newSocket.on('error', (message) => {
+      console.error('WebSocket error:', message);
     });
 
-    newSocket.on("playerBet", (data) => {
-      console.log("💰 Player bet:", data);
-      if (data.playerId === getPlayerId()) {
-        setCurrentBet({
-          amount: data.usdAmount,
-          currency: data.currency,
-          cryptoAmount: data.cryptoAmount,
-        });
-        setMessage(`Bet placed: $${data.usdAmount} in ${data.currency}`);
-        loadPlayerBalance();
-      }
-    });
-
-    newSocket.on("playerCashout", (data) => {
-      console.log("💸 Player cashout:", data);
-      if (data.playerId === getPlayerId()) {
-        setMessage(
-          `Cashed out at ${data.multiplier}x! Won $${data.usdPayout.toFixed(2)}`
-        );
-        setCurrentBet(null);
-        loadPlayerBalance();
-      }
-    });
-
-    newSocket.on("cashoutSuccess", (data) => {
-      console.log("✅ Cashout successful:", data);
-      setMessage(
-        `Successfully cashed out at ${
-          data.multiplier
-        }x! Won $${data.usdPayout.toFixed(2)}`
-      );
-      setCurrentBet(null);
+    // Load player balance when connected or on initial load
+    if (isConnected) {
       loadPlayerBalance();
-    });
-
-    newSocket.on("cashoutError", (data) => {
-      console.error("❌ Cashout error:", data);
-      setMessage(`Cashout failed: ${data.error}`);
-    });
+    }
 
     return () => {
-      newSocket.close();
+      newSocket.disconnect();
     };
-  }, [getPlayerId, loadPlayerBalance]);
-
-  // Add funds to wallet
-  const addFunds = async () => {
-    const amountNum = parseFloat(depositData.amount);
-    if (!amountNum || amountNum < 0.01 || amountNum > 50000) {
-      setMessage("Please enter a valid amount between 0.01 and 50000");
-      return;
-    }
-    setIsDepositing(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/wallet/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerId: getPlayerId(),
-          usdAmount: amountNum,
-          currency: depositData.currency,
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setMessage(
-          `Successfully added $${amountNum} worth of ${depositData.currency} to wallet!`
-        );
-        setShowDepositModal(false);
-        setDepositData({ amount: "", currency: "BTC" });
-        loadPlayerBalance();
-      } else {
-        setMessage(`Failed to add funds: ${data.error}`);
-      }
-    } catch (error) {
-      console.error("Error adding funds:", error);
-      setMessage("Error adding funds. Please try again.");
-    } finally {
-      setIsDepositing(false);
-    }
-  };
+  }, [isConnected, loadPlayerBalance]); // Add loadPlayerBalance to dependency array
 
   // Load round history
   const loadRoundHistory = useCallback(async () => {
