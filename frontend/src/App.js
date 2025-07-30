@@ -28,71 +28,40 @@ function App() {
     walletAddress: '',
   });
   const [currentBet, setCurrentBet] = useState(null);
+  const [roundHistory, setRoundHistory] = useState([]);
+  const [cryptoPrices, setCryptoPrices] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositData, setDepositData] = useState({ amount: "", currency: "BTC" });
   const [isDepositing, setIsDepositing] = useState(false);
 
-  // Helper function to get player ID
-  const getPlayerId = useCallback(() => {
-    // This function needs to return a player ID. 
-    // For now, returning a placeholder. You might need to implement actual user authentication.
-    return playerData?.id || 'guest_player'; 
-  }, [playerData]);
+  // Helper function to get player ID (assuming it's stored in localStorage)
+  const getPlayerId = () => {
+    let playerId = localStorage.getItem("playerId");
+    if (!playerId) {
+      playerId = "player_" + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("playerId", playerId);
+    }
+    return playerId;
+  };
 
-  // Define loadPlayerBalance here, before its usage in useEffect
   const loadPlayerBalance = useCallback(async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/player/balance`);
+      const response = await fetch(`${BACKEND_URL}/api/player/balance/${getPlayerId()}`);
       const data = await response.json();
-      if (response.ok) {
+      if (data.success) {
         setPlayerBalance(data.balance);
       } else {
-        console.error('Failed to load player balance:', data.message);
+        console.error("Failed to load player balance:", data.error);
       }
     } catch (error) {
-      console.error('Error loading player balance:', error);
+      console.error("Error loading player balance:", error);
     }
-  }, [setPlayerBalance]);
-
-  // Load round history
-  const loadRoundHistory = useCallback(async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/round/history`);
-      const data = await response.json();
-
-      if (data.success) {
-        setRoundHistory(data.rounds.slice(0, 10));
-      }
-    } catch (error) {
-      console.error("Error loading history:", error);
-    }
-  }, [setRoundHistory]);
-
-  // Load crypto prices
-  const loadCryptoPrices = useCallback(async () => {
-    try {
-      console.log("🔄 Loading prices from:", `${BACKEND_URL}/api/prices`);
-      const response = await fetch(`${BACKEND_URL}/api/prices`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.prices) {
-        setCryptoPrices(data.prices);
-        console.log("💰 Prices loaded:", data.prices);
-      } else {
-        console.warn("Price API returned unexpected format:", data);
-        console.log("📊 Using fallback prices");
-      }
-    } catch (error) {
-      console.warn("Failed to load prices:", error.message || error);
-      console.log("📊 Using fallback prices");
-    }
-  }, [setCryptoPrices]);
+  }, []);
 
   // Add Funds function
-  const addFunds = useCallback(async () => {
+  const addFunds = async () => {
     setIsDepositing(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/player/deposit`, {
@@ -112,7 +81,7 @@ function App() {
       if (data.success) {
         setMessage("Funds added successfully!");
         setShowDepositModal(false);
-        setDepositData({ amount: "", currency: "USDT", walletAddress: "" });
+        setDepositData({ amount: "", currency: "BTC" });
         loadPlayerBalance(); // Refresh balance after deposit
       } else {
         setMessage(`Error adding funds: ${data.error}`);
@@ -123,82 +92,6 @@ function App() {
     } finally {
       setIsDepositing(false);
     }
-  }, [depositData, getPlayerId, loadPlayerBalance, setMessage, setShowDepositModal, setIsDepositing]);
-
-  // Place bet
-  const placeBet = async () => {
-    if (!betData.amount || isLoading) return;
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/bet`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playerId: getPlayerId(),
-          usdAmount: parseFloat(betData.amount),
-          currency: betData.currency,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setMessage(data.message);
-        setBetData({ ...betData, amount: "" });
-        loadPlayerBalance();
-      } else {
-        setMessage(`Error: ${data.error}`);
-      }
-    } catch (error) {
-      console.error("Error placing bet:", error);
-      setMessage("Error placing bet. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Cash out
-  const cashOut = () => {
-    if (!socket || !currentBet) return;
-
-    console.log("🎯 Attempting cashout...");
-    socket.emit("cashout", { playerId: getPlayerId() });
-  };
-
-  // Helper functions
-  const getMultiplierColor = () => {
-    if (gameState.status === "crashed") return "text-red-500";
-    if (gameState.status === "active") return "text-green-500 animate-pulse";
-    return "text-gray-500";
-  };
-
-  const getStatusColor = () => {
-    if (gameState.status === "crashed") return "text-red-400";
-    if (gameState.status === "active") return "text-green-400";
-    return "text-yellow-400";
-  };
-
-  const getCrashColor = (crashPoint) => {
-    if (crashPoint < 2) return "text-red-500";
-    if (crashPoint < 10) return "text-yellow-500";
-    return "text-green-500";
-  };
-
-  const canPlaceBet = () => {
-    return (
-      gameState?.bettingPhase && !currentBet && betData.amount && !isLoading
-    );
-  };
-
-  const canCashOut = () => {
-    return (
-      gameState?.status === "active" &&
-      currentBet &&
-      gameState.currentMultiplier > 1.0
-    );
   };
 
   useEffect(() => {
@@ -648,38 +541,3 @@ function App() {
 }
 
 export default App;
-
-
-// Add Funds function
-const addFunds = async () => {
-  setIsDepositing(true);
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/player/deposit`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        playerId: getPlayerId(), // Assuming getPlayerId is defined elsewhere or will be defined
-        amount: parseFloat(depositData.amount),
-        currency: depositData.currency,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      setMessage("Funds added successfully!");
-      setShowDepositModal(false);
-      setDepositData({ amount: "", currency: "USDT", walletAddress: "" });
-      loadPlayerBalance(); // Refresh balance after deposit
-    } else {
-      setMessage(`Error adding funds: ${data.error}`);
-    }
-  } catch (error) {
-    console.error("Error adding funds:", error);
-    setMessage("Error adding funds. Please try again.");
-  } finally {
-    setIsDepositing(false);
-  }
-};
