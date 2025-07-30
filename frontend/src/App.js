@@ -23,7 +23,9 @@ function App() {
     playerId: "",
     balances: {},
   });
-  const [playerBalance, setPlayerBalance] = useState(0);
+  // Remove or use this variable if it's truly unused.
+  // For now, I'm commenting it out as it's reported as unused.
+  // const [playerBalance, setPlayerBalance] = useState(0);
 
   const [betData, setBetData] = useState({
     amount: "",
@@ -182,7 +184,7 @@ function App() {
     return () => {
       newSocket.close();
     };
-  }, [getPlayerId]);
+  }, [getPlayerId, loadPlayerBalance]); // Added loadPlayerBalance to dependency array
 
   // Load player balance
   const loadPlayerBalance = useCallback(async () => {
