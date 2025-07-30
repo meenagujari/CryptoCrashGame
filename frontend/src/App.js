@@ -28,7 +28,14 @@ function App() {
     walletAddress: '',
   });
   const [currentBet, setCurrentBet] = useState(null);
-  const [isDepositing, setIsDepositing] = useState(false); // Added missing state
+  const [isDepositing, setIsDepositing] = useState(false);
+
+  // Helper function to get player ID
+  const getPlayerId = useCallback(() => {
+    // This function needs to return a player ID. 
+    // For now, returning a placeholder. You might need to implement actual user authentication.
+    return playerData?.id || 'guest_player'; 
+  }, [playerData]);
 
   // Define loadPlayerBalance here, before its usage in useEffect
   const loadPlayerBalance = useCallback(async () => {
@@ -43,60 +50,7 @@ function App() {
     } catch (error) {
       console.error('Error loading player balance:', error);
     }
-  }, []);
-
-  useEffect(() => {
-    const newSocket = io(BACKEND_URL);
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
-      setIsConnected(true);
-      console.log('Connected to WebSocket');
-    });
-
-    newSocket.on('disconnect', () => {
-      setIsConnected(false);
-      console.log('Disconnected from WebSocket');
-    });
-
-    newSocket.on('gameStateUpdate', (state) => {
-      setGameState(state);
-      // console.log('Game state updated:', state);
-    });
-
-    newSocket.on('playerData', (data) => {
-      setPlayerData(data);
-      // console.log('Player data received:', data);
-    });
-
-    newSocket.on('balanceUpdate', (balance) => {
-      setPlayerBalance(balance);
-      console.log('Balance updated:', balance);
-    });
-
-    newSocket.on('betPlaced', (bet) => {
-      console.log('Bet placed:', bet);
-      // Optionally update UI or player data
-    });
-
-    newSocket.on('cashOutSuccess', (data) => {
-      console.log('Cash out successful:', data);
-      // Optionally update UI or player data
-    });
-
-    newSocket.on('error', (message) => {
-      console.error('WebSocket error:', message);
-    });
-
-    // Load player balance when connected or on initial load
-    if (isConnected) {
-      loadPlayerBalance();
-    }
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [isConnected, loadPlayerBalance]); // Add loadPlayerBalance to dependency array
+  }, [setPlayerBalance]);
 
   // Load round history
   const loadRoundHistory = useCallback(async () => {
@@ -110,7 +64,7 @@ function App() {
     } catch (error) {
       console.error("Error loading history:", error);
     }
-  }, []);
+  }, [setRoundHistory]);
 
   // Load crypto prices
   const loadCryptoPrices = useCallback(async () => {
@@ -135,17 +89,41 @@ function App() {
       console.warn("Failed to load prices:", error.message || error);
       console.log("📊 Using fallback prices");
     }
-  }, []);
+  }, [setCryptoPrices]);
 
-  // Initial data load
-  useEffect(() => {
-    loadPlayerBalance();
-    loadRoundHistory();
-    loadCryptoPrices();
+  // Add Funds function
+  const addFunds = useCallback(async () => {
+    setIsDepositing(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/player/deposit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId: getPlayerId(),
+          amount: parseFloat(depositData.amount),
+          currency: depositData.currency,
+        }),
+      });
 
-    const priceInterval = setInterval(loadCryptoPrices, 30000);
-    return () => clearInterval(priceInterval);
-  }, [loadPlayerBalance, loadRoundHistory, loadCryptoPrices]);
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage("Funds added successfully!");
+        setShowDepositModal(false);
+        setDepositData({ amount: "", currency: "USDT", walletAddress: "" });
+        loadPlayerBalance(); // Refresh balance after deposit
+      } else {
+        setMessage(`Error adding funds: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error adding funds:", error);
+      setMessage("Error adding funds. Please try again.");
+    } finally {
+      setIsDepositing(false);
+    }
+  }, [depositData, getPlayerId, loadPlayerBalance, setMessage, setShowDepositModal, setIsDepositing]);
 
   // Place bet
   const placeBet = async () => {
@@ -191,12 +169,6 @@ function App() {
   };
 
   // Helper functions
-  const getPlayerId = () => {
-    // This function needs to return a player ID. 
-    // For now, returning a placeholder. You might need to implement actual user authentication.
-    return playerData?.id || 'guest_player'; 
-  };
-
   const getMultiplierColor = () => {
     if (gameState.status === "crashed") return "text-red-500";
     if (gameState.status === "active") return "text-green-500 animate-pulse";
@@ -217,17 +189,80 @@ function App() {
 
   const canPlaceBet = () => {
     return (
-      gameState.bettingPhase && !currentBet && betData.amount && !isLoading
+      gameState?.bettingPhase && !currentBet && betData.amount && !isLoading
     );
   };
 
   const canCashOut = () => {
     return (
-      gameState.status === "active" &&
+      gameState?.status === "active" &&
       currentBet &&
       gameState.currentMultiplier > 1.0
     );
   };
+
+  useEffect(() => {
+    const newSocket = io(BACKEND_URL);
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      setIsConnected(true);
+      console.log('Connected to WebSocket');
+    });
+
+    newSocket.on('disconnect', () => {
+      setIsConnected(false);
+      console.log('Disconnected from WebSocket');
+    });
+
+    newSocket.on('gameStateUpdate', (state) => {
+      setGameState(state);
+      // console.log('Game state updated:', state);
+    });
+
+    newSocket.on('playerData', (data) => {
+      setPlayerData(data);
+      // console.log('Player data received:', data);
+    });
+
+    newSocket.on('balanceUpdate', (balance) => {
+      setPlayerBalance(balance);
+      console.log('Balance updated:', balance);
+    });
+
+    newSocket.on('betPlaced', (bet) => {
+      console.log('Bet placed:', bet);
+      setCurrentBet(bet); // Set current bet when a bet is placed
+    });
+
+    newSocket.on('cashOutSuccess', (data) => {
+      console.log('Cash out successful:', data);
+      setCurrentBet(null); // Clear current bet on cash out
+    });
+
+    newSocket.on('error', (message) => {
+      console.error('WebSocket error:', message);
+    });
+
+    // Load player balance when connected or on initial load
+    if (isConnected) {
+      loadPlayerBalance();
+    }
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [isConnected, loadPlayerBalance, setPlayerData, setPlayerBalance, setGameState, setCurrentBet]);
+
+  // Initial data load
+  useEffect(() => {
+    loadPlayerBalance();
+    loadRoundHistory();
+    loadCryptoPrices();
+
+    const priceInterval = setInterval(loadCryptoPrices, 30000);
+    return () => clearInterval(priceInterval);
+  }, [loadPlayerBalance, loadRoundHistory, loadCryptoPrices]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
@@ -279,23 +314,23 @@ function App() {
             <div
               className={`text-8xl font-bold mb-6 transition-all duration-300 ${getMultiplierColor()}`}
             >
-              {gameState.currentMultiplier.toFixed(2)}x
+              {gameState?.currentMultiplier?.toFixed(2)}x
             </div>
 
             <div className={`text-3xl font-semibold mb-4 ${getStatusColor()}`}>
-              {gameState.status === "waiting" && "⏳ Waiting for next round..."}
-              {gameState.status === "active" && "📈 Multiplier Rising!"}
-              {gameState.status === "crashed" && "💥 Crashed!"}
+              {gameState?.status === "waiting" && "⏳ Waiting for next round..."}
+              {gameState?.status === "active" && "📈 Multiplier Rising!"}
+              {gameState?.status === "crashed" && "💥 Crashed!"}
             </div>
 
             <div className="space-y-2 text-gray-400">
               <div className="text-lg">
                 Round:{" "}
                 <span className="text-white font-mono">
-                  {gameState.roundId?.slice(-8) || "Loading..."}
+                  {gameState?.roundId?.slice(-8) || "Loading..."}
                 </span>
               </div>
-              {gameState.status === "active" && (
+              {gameState?.status === "active" && (
                 <div className="text-sm">
                   Time: {(gameState.timeElapsed / 1000).toFixed(1)}s
                 </div>
@@ -316,7 +351,8 @@ function App() {
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.01"
+                  step="0.01"
                   max="1000"
                   value={betData.amount}
                   onChange={(e) =>
@@ -324,7 +360,7 @@ function App() {
                   }
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Enter bet amount"
-                  disabled={!gameState.bettingPhase || currentBet}
+                  disabled={!gameState?.bettingPhase || currentBet}
                 />
               </div>
 
@@ -338,7 +374,7 @@ function App() {
                     setBetData({ ...betData, currency: e.target.value })
                   }
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  disabled={!gameState.bettingPhase || currentBet}
+                  disabled={!gameState?.bettingPhase || currentBet}
                 >
                   <option value="BTC" className="bg-gray-800">
                     ₿ Bitcoin (BTC)
@@ -362,7 +398,7 @@ function App() {
                     ${currentBet.amount} in {currentBet.currency}
                   </div>
                   <div className="text-xs text-blue-300">
-                    {currentBet.cryptoAmount.toFixed(8)} {currentBet.currency}
+                    {currentBet.cryptoAmount?.toFixed(8)} {currentBet.currency}
                   </div>
                 </div>
               )}
@@ -389,7 +425,7 @@ function App() {
                   disabled={!canCashOut()}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 hover:scale-105 disabled:hover:scale-100 disabled:opacity-50 shadow-lg animate-pulse"
                 >
-                  💰 Cash Out at {gameState.currentMultiplier.toFixed(2)}x
+                  💰 Cash Out at {gameState?.currentMultiplier?.toFixed(2)}x
                 </button>
               )}
             </div>
@@ -411,7 +447,7 @@ function App() {
                   {currency}
                 </div>
                 <div className="text-lg text-gray-300">
-                  ${price.toLocaleString()}
+                  ${price?.toLocaleString()}
                 </div>
               </div>
             ))}
@@ -419,7 +455,7 @@ function App() {
         </div>
 
         {/* Balance Display */}
-        {playerData.balances && Object.keys(playerData.balances).length > 0 && (
+        {playerData?.balances && Object.keys(playerData.balances).length > 0 && (
           <div className="max-w-4xl mx-auto mt-8 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-white">💰 Your Wallet</h3>
@@ -442,10 +478,10 @@ function App() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-400">
-                        {balance.crypto.toFixed(8)} {currency}
+                        {balance.crypto?.toFixed(8)} {currency}
                       </div>
                       <div className="text-lg font-bold text-green-400">
-                        ${balance.usd.toFixed(2)}
+                        ${balance.usd?.toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -456,7 +492,7 @@ function App() {
         )}
 
         {/* Empty Wallet Prompt */}
-        {(!playerData.balances ||
+        {(!playerData?.balances ||
           Object.keys(playerData.balances).length === 0) && (
           <div className="max-w-4xl mx-auto mt-8 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-8 text-center">
             <h3 className="text-2xl font-bold text-white mb-4">
@@ -494,7 +530,7 @@ function App() {
                       round.crashPoint
                     )}`}
                   >
-                    {round.crashPoint.toFixed(2)}x
+                    {round.crashPoint?.toFixed(2)}x
                   </div>
                 </div>
               ))}
