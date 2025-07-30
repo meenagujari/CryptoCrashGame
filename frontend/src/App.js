@@ -186,7 +186,7 @@ function App() {
     };
   }, [getPlayerId, loadPlayerBalance]); // Added loadPlayerBalance to dependency array
 
-  // Load player balance
+  // Load player balance - MOVED BEFORE useEffect THAT USES IT
   const loadPlayerBalance = useCallback(async () => {
     try {
       const playerId = getPlayerId();
@@ -202,9 +202,136 @@ function App() {
         });
       }
     } catch (error) {
-      console.error("Error loading balance:", error);
+      console.error("Error loading player balance:", error);
     }
   }, [getPlayerId]);
+
+  // Socket connection setup - NOW THIS COMES AFTER loadPlayerBalance DEFINITION
+  useEffect(() => {
+    const newSocket = io(BACKEND_URL, {
+      transports: ["websocket", "polling"],
+      timeout: 5000,
+      forceNew: true,
+    });
+
+    newSocket.on("connect", () => {
+      console.log("✅ Connected to server");
+      setIsConnected(true);
+      setSocket(newSocket);
+    });
+
+    newSocket.on("disconnect", () => {
+      console.log("❌ Disconnected from server");
+      setIsConnected(false);
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      setIsConnected(false);
+    });
+
+    // Game state events
+    newSocket.on("gameState", (data) => {
+      console.log("📊 Game state received:", data);
+      setGameState(data);
+    });
+
+    newSocket.on("roundWaiting", (data) => {
+      console.log("⏳ Round waiting:", data);
+      setGameState((prev) => ({
+        ...prev,
+        roundId: data.roundId,
+        status: "waiting",
+        bettingPhase: true,
+        currentMultiplier: 1.0,
+        timeElapsed: 0,
+      }));
+      setCurrentBet(null);
+      setMessage(data.message || "Betting phase - Place your bets!");
+    });
+
+    newSocket.on("roundStart", (data) => {
+      console.log("🚀 Round started:", data);
+      setGameState((prev) => ({
+        ...prev,
+        roundId: data.roundId,
+        status: "active",
+        bettingPhase: false,
+        currentMultiplier: 1.0,
+        timeElapsed: 0,
+      }));
+      setMessage(data.message || "Round started! Multiplier rising...");
+    });
+
+    newSocket.on("multiplierUpdate", (data) => {
+      setGameState((prev) => ({
+        ...prev,
+        currentMultiplier: data.multiplier,
+        timeElapsed: data.timeElapsed,
+      }));
+    });
+
+    newSocket.on("roundCrash", (data) => {
+      console.log("💥 Round crashed:", data);
+      setGameState((prev) => ({
+        ...prev,
+        status: "crashed",
+        currentMultiplier: data.crashPoint,
+        bettingPhase: false,
+      }));
+      setMessage(data.message || `Round crashed at ${data.crashPoint}x!`);
+
+      // Add to history
+      setRoundHistory((prev) => [
+        { roundId: data.roundId, crashPoint: data.crashPoint },
+        ...prev.slice(0, 9),
+      ]);
+    });
+
+    newSocket.on("playerBet", (data) => {
+      console.log("💰 Player bet:", data);
+      if (data.playerId === getPlayerId()) {
+        setCurrentBet({
+          amount: data.usdAmount,
+          currency: data.currency,
+          cryptoAmount: data.cryptoAmount,
+        });
+        setMessage(`Bet placed: $${data.usdAmount} in ${data.currency}`);
+        loadPlayerBalance();
+      }
+    });
+
+    newSocket.on("playerCashout", (data) => {
+      console.log("💸 Player cashout:", data);
+      if (data.playerId === getPlayerId()) {
+        setMessage(
+          `Cashed out at ${data.multiplier}x! Won $${data.usdPayout.toFixed(2)}`
+        );
+        setCurrentBet(null);
+        loadPlayerBalance();
+      }
+    });
+
+    newSocket.on("cashoutSuccess", (data) => {
+      console.log("✅ Cashout successful:", data);
+      setMessage(
+        `Successfully cashed out at ${
+          data.multiplier
+        }x! Won $${data.usdPayout.toFixed(2)}`
+      );
+      setCurrentBet(null);
+      loadPlayerBalance();
+    });
+
+    newSocket.on("cashoutError", (data) => {
+      console.error("❌ Cashout error:", data);
+      setMessage(`Cashout failed: ${data.error}`);
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, [getPlayerId, loadPlayerBalance]);
 
   // Add funds to wallet
   const addFunds = async () => {
