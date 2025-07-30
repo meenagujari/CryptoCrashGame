@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import io from "socket.io-client";
 
-const BACKEND_URL =
+export const BACKEND_URL =
   process.env.NODE_ENV === "production"
     ? window.location.origin
     : process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
@@ -18,7 +18,11 @@ function App() {
     bettingPhase: false,
   });
 
-  // Remove unused playerData state
+  // Restore playerData state with proper structure
+  const [playerData, setPlayerData] = useState({
+    playerId: "",
+    balances: {},
+  });
   const [playerBalance, setPlayerBalance] = useState(0);
 
   const [betData, setBetData] = useState({
@@ -36,6 +40,13 @@ function App() {
     USDT: 1,
   });
 
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositData, setDepositData] = useState({
+    amount: "",
+    currency: "BTC",
+  });
+  const [isDepositing, setIsDepositing] = useState(false);
+
   // Generate or get player ID
   const getPlayerId = useCallback(() => {
     let playerId = localStorage.getItem("crypto_crash_player_id");
@@ -46,17 +57,7 @@ function App() {
     return playerId;
   }, []);
 
-  // Load player balance (MOVED HERE)
-  const loadPlayerBalance = useCallback(async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/player/balance/${getPlayerId()}`);
-      const data = await response.json();
-      setPlayerBalance(data.balance);
-    } catch (error) {
-      console.error('Error loading player b alance:', error);
-    }
-  }, [getPlayerId]); // Remove BACKEND_URL from here
-
+  // Socket connection setup
   useEffect(() => {
     const newSocket = io(BACKEND_URL, {
       transports: ["websocket", "polling"],
@@ -181,7 +182,66 @@ function App() {
     return () => {
       newSocket.close();
     };
-  }, [getPlayerId, loadPlayerBalance]); // Remove BACKEND_URL from dependencies
+  }, [getPlayerId]);
+
+  // Load player balance
+  const loadPlayerBalance = useCallback(async () => {
+    try {
+      const playerId = getPlayerId();
+      const response = await fetch(
+        `${BACKEND_URL}/api/player/${playerId}/balance`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setPlayerData({
+          playerId,
+          balances: data.balances,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading balance:", error);
+    }
+  }, [getPlayerId]);
+
+  // Add funds to wallet
+  const addFunds = async () => {
+    const amountNum = parseFloat(depositData.amount);
+    if (!amountNum || amountNum < 0.01 || amountNum > 50000) {
+      setMessage("Please enter a valid amount between 0.01 and 50000");
+      return;
+    }
+    setIsDepositing(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/wallet/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId: getPlayerId(),
+          usdAmount: amountNum,
+          currency: depositData.currency,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMessage(
+          `Successfully added $${amountNum} worth of ${depositData.currency} to wallet!`
+        );
+        setShowDepositModal(false);
+        setDepositData({ amount: "", currency: "BTC" });
+        loadPlayerBalance();
+      } else {
+        setMessage(`Failed to add funds: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error adding funds:", error);
+      setMessage("Error adding funds. Please try again.");
+    } finally {
+      setIsDepositing(false);
+    }
+  };
 
   // Load round history
   const loadRoundHistory = useCallback(async () => {
@@ -500,9 +560,15 @@ function App() {
         {/* Balance Display */}
         {playerData.balances && Object.keys(playerData.balances).length > 0 && (
           <div className="max-w-4xl mx-auto mt-8 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-6">
-            <h3 className="text-2xl font-bold text-white mb-6 text-center">
-              💰 Your Wallet
-            </h3>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">💰 Your Wallet</h3>
+              <button
+                onClick={() => setShowDepositModal(true)}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg"
+              >
+                ➕ Add Funds
+              </button>
+            </div>
             <div className="space-y-4">
               {Object.entries(playerData.balances).map(
                 ([currency, balance]) => (
@@ -525,6 +591,25 @@ function App() {
                 )
               )}
             </div>
+          </div>
+        )}
+
+        {/* Empty Wallet Prompt */}
+        {(!playerData.balances ||
+          Object.keys(playerData.balances).length === 0) && (
+          <div className="max-w-4xl mx-auto mt-8 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-8 text-center">
+            <h3 className="text-2xl font-bold text-white mb-4">
+              💰 Your Wallet
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Your wallet is empty. Add funds to start playing!
+            </p>
+            <button
+              onClick={() => setShowDepositModal(true)}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+            >
+              💰 Add Funds
+            </button>
           </div>
         )}
 
@@ -556,6 +641,111 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* Deposit Modal */}
+      {showDepositModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-white/20 rounded-2xl p-8 max-w-md w-full mx-4">
+            <h3 className="text-2xl font-bold text-white mb-6 text-center">
+              💰 Add Funds to Wallet
+            </h3>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Amount (USD)
+                </label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max="50000"
+                  value={depositData.amount}
+                  onChange={(e) =>
+                    setDepositData({ ...depositData, amount: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder="Enter amount in USD"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Cryptocurrency
+                </label>
+                <select
+                  value={depositData.currency}
+                  onChange={(e) =>
+                    setDepositData({ ...depositData, currency: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                >
+                  <option value="BTC" className="bg-gray-800">
+                    ₿ Bitcoin (BTC)
+                  </option>
+                  <option value="ETH" className="bg-gray-800">
+                    Ξ Ethereum (ETH)
+                  </option>
+                  <option value="USDT" className="bg-gray-800">
+                    ₮ Tether (USDT)
+                  </option>
+                </select>
+              </div>
+
+              {depositData.amount && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="text-sm text-gray-300 mb-1">
+                    You'll receive:
+                  </div>
+                  <div className="text-lg font-bold text-green-400">
+                    {(
+                      parseFloat(depositData.amount) /
+                      cryptoPrices[depositData.currency]
+                    ).toFixed(8)}{" "}
+                    {depositData.currency}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    at ${cryptoPrices[depositData.currency].toLocaleString()}{" "}
+                    per {depositData.currency}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => {
+                    setShowDepositModal(false);
+                    setDepositData({ amount: "", currency: "BTC" });
+                  }}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addFunds}
+                  disabled={
+                    isDepositing ||
+                    !depositData.amount ||
+                    isNaN(parseFloat(depositData.amount)) ||
+                    parseFloat(depositData.amount) < 0.01 ||
+                    parseFloat(depositData.amount) > 50000
+                  }
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50"
+                >
+                  {isDepositing ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    "Add Funds"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

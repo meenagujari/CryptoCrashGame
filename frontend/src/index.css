@@ -4,8 +4,8 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -14,7 +14,7 @@ body {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
 
@@ -39,7 +39,7 @@ code {
     @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
 }
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 * {
   margin: 0;
@@ -56,31 +56,32 @@ code {
   .glass-card {
     @apply bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl;
   }
-  
+
   .glass-button {
     @apply bg-white/10 backdrop-blur-md rounded-lg border border-white/20 transition-all duration-300 hover:bg-white/20;
   }
-  
+
   .neon-text {
-    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor,
+      0 0 40px currentColor;
   }
-  
+
   .bet-button {
     @apply glass-button px-6 py-3 font-semibold text-white hover:scale-105 transform transition-transform;
   }
-  
+
   .cashout-button {
     @apply bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg;
   }
-  
+
   .multiplier-display {
     @apply text-6xl font-bold neon-text text-multiplier;
   }
-  
+
   .game-status {
     @apply text-2xl font-semibold mb-4;
   }
-  
+
   .crypto-price {
     @apply bg-gray-800/50 rounded-lg p-4 backdrop-blur-sm border border-gray-600/30;
   }
