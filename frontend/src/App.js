@@ -17,17 +17,18 @@ function App() {
     cashOutMultiplier: '',
   });
   const [playerBalance, setPlayerBalance] = useState(0);
-  const [roundHistory, setRoundHistory] = useState([]); // Added missing state
-  const [cryptoPrices, setCryptoPrices] = useState({}); // Added missing state
-  const [isLoading, setIsLoading] = useState(false); // Added missing state
-  const [message, setMessage] = useState(''); // Added missing state
-  const [showDepositModal, setShowDepositModal] = useState(false); // Added missing state
-  const [depositData, setDepositData] = useState({ // Added missing state
+  const [roundHistory, setRoundHistory] = useState([]);
+  const [cryptoPrices, setCryptoPrices] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositData, setDepositData] = useState({
     amount: '',
     currency: 'USDT',
     walletAddress: '',
   });
-  const [currentBet, setCurrentBet] = useState(null); // Added missing state
+  const [currentBet, setCurrentBet] = useState(null);
+  const [isDepositing, setIsDepositing] = useState(false); // Added missing state
 
   // Define loadPlayerBalance here, before its usage in useEffect
   const loadPlayerBalance = useCallback(async () => {
@@ -611,3 +612,38 @@ function App() {
 }
 
 export default App;
+
+
+// Add Funds function
+const addFunds = async () => {
+  setIsDepositing(true);
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/player/deposit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        playerId: getPlayerId(), // Assuming getPlayerId is defined elsewhere or will be defined
+        amount: parseFloat(depositData.amount),
+        currency: depositData.currency,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setMessage("Funds added successfully!");
+      setShowDepositModal(false);
+      setDepositData({ amount: "", currency: "USDT", walletAddress: "" });
+      loadPlayerBalance(); // Refresh balance after deposit
+    } else {
+      setMessage(`Error adding funds: ${data.error}`);
+    }
+  } catch (error) {
+    console.error("Error adding funds:", error);
+    setMessage("Error adding funds. Please try again.");
+  } finally {
+    setIsDepositing(false);
+  }
+};
