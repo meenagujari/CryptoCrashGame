@@ -9,24 +9,10 @@ export const BACKEND_URL =
 function App() {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [gameState, setGameState] = useState(null);
+  const [gameState, setGameState] = useState({});
   const [playerData, setPlayerData] = useState(null);
-  const [betData, setBetData] = useState({
-    betAmount: '',
-    currency: 'USD',
-    cashOutMultiplier: '',
-  });
+  const [betData, setBetData] = useState({ amount: "", currency: "BTC" });
   const [playerBalance, setPlayerBalance] = useState(0);
-  const [roundHistory, setRoundHistory] = useState([]);
-  const [cryptoPrices, setCryptoPrices] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [depositData, setDepositData] = useState({
-    amount: '',
-    currency: 'USDT',
-    walletAddress: '',
-  });
   const [currentBet, setCurrentBet] = useState(null);
   const [roundHistory, setRoundHistory] = useState([]);
   const [cryptoPrices, setCryptoPrices] = useState({});
